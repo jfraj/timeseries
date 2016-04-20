@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Title</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <style type="text/css">
+      /* Slideshow styles */
+      table {
+          border-collapse: collapse;
+      }
+      th, td {
+          padding: 5px;
+          border: 1px solid ;
+      };
+
+    </style>
+  </head>
+  <body>
+    <textarea id="source">
+
+
+class: center, middle
+
+# Time series analysis
+
+* What are time series
+* Spark TS for distributed system
+* Couning statistics (event rate)
+* Fourier Transform
+* something something Granger
+* Gaussian process
+
+---
+
+# references
+
+#### Spark time series
+[spark summit ](https://www.youtube.com/watch?v=tKkneWcAIqU)
+
+#### Forcasting
+
+#### Fourier transform
+
+#### Granger covariance
+
+#### Gaussian processes
+http://www.robots.ox.ac.uk/~sjrob/Pubs/philTransA_2012.pdf
+http://www.rogerfrigola.com/doc/thesis.pdf
+http://stat.columbia.edu/~cunningham/pdf/CunninghamAISTATS2012.pdf
+https://papers.nips.cc/paper/2783-gaussian-process-dynamical-models.pdf
+
+---
+
+Time series
+Characteristics
+* Dependence on past only (but obviously future can give insight into the past)
+
+---
+
+# TS Layout
+## Observations
+| timestamp | Key | Value |
+| --- | --- | --- |
+| 2016-01-01 | A | 0.1 |
+| 2016-01-01 | B | 0.5 |
+| 2016-01-02 | B | 0.6 |
+| 2016-01-03 | A | 0.2 |
+
+Need `groupBy` to look at a moment in time => expensive espescially in distributed system.
+
+---
+
+# TS Layout
+## Instant
+| timestamp | A | B | C |
+| --- | --- | --- | --- |
+| 2016-01-01 | 0.1 | 0.2 | 0.3 |
+| 2016-01-02 | 0.3 | 0.3 | 0.6 |
+
+Good for if each row considered as an independant data point.
+Not so good with distributed system if you want to connect with time,
+e.g. expensive if previous row (time) is in a different partition.
+
+---
+
+# TS Layout
+## Row = univariate time series
+
+| dateTimeIndex | [2016-01-01, 2016-01-02, ...]|
+| --- | --- |
+| **Key** | **Series** |
+| A | [0.1, 0,2, 0.3] |
+| B | [0.3, NaN, 0.6] |
+
+In many applications, a single time series will easily fit in memory.
+
+---
+#Selected topics of Time series
+
+- Counting time series
+- Forcasting
+
+---
+## Counting time series
+From this `R` package [description](https://cran.r-project.org/web/packages/tscount/vignettes/tsglm.pdf)
+Examples:
+- Number hospital admissions per day
+- Number of particle emmitted per second by radiative material
+- Number of clicks per day
+
+All of the above have a different model of production, but they all comprise **non-negative** number of event.
+---
+
+## Counting time series
+Possible approaches
+- (Generalized) Linear Model (G)LM
+  - Well defined model assesment and forcasting
+- (integer) Auto Regressive Moving Average ARMA
+
+---
+
+### Linear model
+from [here](https://www.u-cergy.fr/_resources/Documents%2520SDRV/documents%2520IEA/Fokianos_CTSM.pdf)
+and [here](http://www.planta.cn/forum/files_planta/glm_2002_crc_213.pdf)
+http://data.princeton.edu/wws509/notes/c4.pdf
+
+Ordinary regression of linear model does not take into account the discret nature of counting (e.g. there is no fractional clicks).
+A natural starting point is the **Poisson regression**.
+
+Poisson distribution models probability the number of events y for a given random value
+$$P(Y=y) = \frac{m^{r}e^{-m}}{y!}$$
+where
+* `m` is the mean rate for the given interval
+* y = 1,2,3...
+
+Note1: mean and variance happen to both be `m` for Poisson.
+Note2: The sum of 2 (independant) poisson process is also a poisson process
+#### Warning:
+The poisson distribution is actually a limiting form of the **binomial** distribution
+with mean `m = N*p` where `N` is the number of trial and `p` the probability.
+There are 3 possibilities:
+- `N` is small: Then go with the actual binomial
+- `N` and `p` are large : use the gaussian, integers can be considered continuous when numbers are large.
+  - Rule of thumb : `N>30` and `p > 0.05`
+- `N` large and `p` small
+
+Concretly, `N` could be the number of impressions and `p` be the probability of getting a click.
+The typical numbers of impressions and clicks fits the predicate of Poisson distribution.
+
+---
+
+### Poisson regression
+Suppose we have `n` events with value `\( y_i = \{y_{1}, y_{2}... y_{n}\} \)`
+We want to find a linear parameter `\(\beta_{i}\)` mapping the time to get the mean `\(m_{i}\)`
+
+#### Simple linear model
+
+$$m_i = \beta_i * x_i $$
+
+Does not exclude negative average.
+
+#### log-linear model
+
+$$log(m_i) = \beta_i * x_i $$
+
+Never the mean is never negative
+
+---
+
+Event count time series
+http://www.utdallas.edu/~pxb054000/code/count-examples/ECTS-I-2010.pdf
+---
+
+# Tools
+
+- R
+
+---
+
+##Some functionality
+
+
+- Exponentially weighted moving average (EWMA) models
+- Autoregressive integrated moving average (ARIMA) models
+- Generalized autoregressive conditional heteroskedastic (GARCH) models
+- Missing data imputation
+- Augmented Dickey-Fuller test
+  - To test if TS is stationary
+- Durbin-Watson test
+  - To test auto correlation
+- Breusch-Godfrey test
+  - To test assumptions in regression model
+- Breusch-Pagan test
+  - tests whether the estimated variance of the residuals from a regression are dependent on the values of the independent variables.
+
+more stats listed [here](http://sryza.github.io/spark-timeseries/0.3.0/index.html)
+
+---
+
+## Time series RDD
+extends `rdd: RDD[String, Vector[Double]`
+index `DateTimeIndex`
+
+---
+
+## Forcasting
+### The naive approach, every event are independant
+- Linear regression: All points are equal, yesterday just as important as last year.
+- Poisson
+http://www.analyticsvidhya.com/blog/2016/02/time-series-forecasting-codes-python/
+http://www.analyticsvidhya.com/blog/2015/12/complete-tutorial-time-series-modeling/
+
+---
+
+Tools
+- Spark TS method (mentioned earlier)
+- R seems to be the most complete include tscounting
+- Python: seems to be behind R
+
+---
+
+# Display and Inline
+
+1. This is an inline integral: `\(\int_a^bf(x)dx\)`
+2. More `\(x={a \over b}\)` formulae.
+
+Display formula:
+
+$$e^{i\pi} + 1 = 0$$
+
+---
+# More stuff
+
+    </textarea>
+    <script src="http://gnab.github.io/remark/downloads/remark-latest.min.js" type="text/javascript"></script>
+    <script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML&delayStartupUntil=configured" type="text/javascript"></script>
+    <script type="text/javascript">
+      var slideshow = remark.create();
+
+      // Setup MathJax
+      MathJax.Hub.Config({
+          tex2jax: {
+          skipTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+          }
+      });
+      MathJax.Hub.Queue(function() {
+          $(MathJax.Hub.getAllJax()).map(function(index, elem) {
+              return(elem.SourceElement());
+          }).parent().addClass('has-jax');
+      });
+
+      MathJax.Hub.Configured();
+
+    </script>
+  </body>
+</html>
