@@ -23,37 +23,17 @@ class: center, middle
 
 # Time series analysis
 
-* What are time series
-* Spark TS for distributed system
-* Couning statistics (event rate)
-* Fourier Transform
-* something something Granger
-* Gaussian process
-
+A very selective overview
 ---
 
-# references
+### 1. Time series definition
+(in the context of distributed system)
 
-#### Spark time series
-[spark summit ](https://www.youtube.com/watch?v=tKkneWcAIqU)
+### 2. Modelling
 
-#### Forcasting
+### 3. Forcasting
 
-#### Fourier transform
-
-#### Granger covariance
-
-#### Gaussian processes
-http://www.robots.ox.ac.uk/~sjrob/Pubs/philTransA_2012.pdf
-http://www.rogerfrigola.com/doc/thesis.pdf
-http://stat.columbia.edu/~cunningham/pdf/CunninghamAISTATS2012.pdf
-https://papers.nips.cc/paper/2783-gaussian-process-dynamical-models.pdf
-
----
-
-Time series
-Characteristics
-* Dependence on past only (but obviously future can give insight into the past)
+<img src="figures/bitcoinTs.png" width="800px"/>
 
 ---
 
@@ -77,7 +57,7 @@ Need `groupBy` to look at a moment in time => expensive espescially in distribut
 | 2016-01-01 | 0.1 | 0.2 | 0.3 |
 | 2016-01-02 | 0.3 | 0.3 | 0.6 |
 
-Good for if each row considered as an independant data point.
+Good if each row considered as an independant data point.
 Not so good with distributed system if you want to connect with time,
 e.g. expensive if previous row (time) is in a different partition.
 
@@ -95,14 +75,14 @@ e.g. expensive if previous row (time) is in a different partition.
 In many applications, a single time series will easily fit in memory.
 
 ---
-#Selected topics of Time series
+# Selected topics of Time series
 
-- Counting time series
-- Forcasting
+### Counting time series
+### Modelling
+### Forcasting
 
 ---
 ## Counting time series
-From this `R` package [description](https://cran.r-project.org/web/packages/tscount/vignettes/tsglm.pdf)
 Examples:
 - Number hospital admissions per day
 - Number of particle emmitted per second by radiative material
@@ -112,124 +92,196 @@ All of the above have a different model of production, but they all comprise **n
 ---
 
 ## Counting time series
-Possible approaches
-- (Generalized) Linear Model (G)LM
-  - Well defined model assesment and forcasting
-- (integer) Auto Regressive Moving Average ARMA
+
+####(Generalized) Linear Model (G)LM
+Well defined model assesment and forcasting
+
+####(integer) Auto Regressive Moving Average ARMA
+Flexible management of the past
 
 ---
 
-### Linear model
-from [here](https://www.u-cergy.fr/_resources/Documents%2520SDRV/documents%2520IEA/Fokianos_CTSM.pdf)
-and [here](http://www.planta.cn/forum/files_planta/glm_2002_crc_213.pdf)
-http://data.princeton.edu/wws509/notes/c4.pdf
+## Linear model
+To put it simply: linear models relates parameters in a linear way.
+
+---
+
+### Poisson distribution
 
 Ordinary regression of linear model does not take into account the discret nature of counting (e.g. there is no fractional clicks).
-A natural starting point is the **Poisson regression**.
+A natural starting point is the **Poisson distribution**.
 
-Poisson distribution models probability the number of events y for a given random value
-$$P(Y=y) = \frac{m^{r}e^{-m}}{y!}$$
-where
-* `m` is the mean rate for the given interval
-* y = 1,2,3...
+Poisson distribution models the probability of the number of events=`\(y\)` for a given random value
+$$P(Y=y) = \frac{\lambda^{y}e^{-\lambda}}{y!}$$
+where `\(\lambda\)` is the mean rate for the given interval and y = 1,2,3...
 
-Note1: mean and variance happen to both be `m` for Poisson.
-Note2: The sum of 2 (independant) poisson process is also a poisson process
-#### Warning:
+<img src="figures/poissonExample.png" width="250px"/>
+
+* Note1: mean and variance happen to both be `m` for Poisson.
+* Note2: The sum of 2 (independant) poisson process is also a poisson process
+
+---
+
+### Warning about data sample size:
 The poisson distribution is actually a limiting form of the **binomial** distribution
-with mean `m = N*p` where `N` is the number of trial and `p` the probability.
+with mean `\(\lambda = N*p\)` where `\(N\)` is the number of trial and `\(p\)` the probability.
 There are 3 possibilities:
 - `N` is small: Then go with the actual binomial
 - `N` and `p` are large : use the gaussian, integers can be considered continuous when numbers are large.
   - Rule of thumb : `N>30` and `p > 0.05`
-- `N` large and `p` small
+- `N` large and `p` small : use Poisson
 
 Concretly, `N` could be the number of impressions and `p` be the probability of getting a click.
 The typical numbers of impressions and clicks fits the predicate of Poisson distribution.
 
 ---
 
-### Poisson regression
+## Poisson regression
 Suppose we have `n` events with value `\( y_i = \{y_{1}, y_{2}... y_{n}\} \)`
-We want to find a linear parameter `\(\beta_{i}\)` mapping the time to get the mean `\(m_{i}\)`
+We want to find a linear parameter `\(\beta_{i}\)` mapping the time to get the mean `\(\lambda_{i}\)`
 
-#### Simple linear model
+### Simple linear model
 
-$$m_i = \beta_i * x_i $$
+$$\lambda_i = \beta_i * x_i $$
 
 Does not exclude negative average.
 
-#### log-linear model
+### log-linear model
 
-$$log(m_i) = \beta_i * x_i $$
+$$log(\lambda_i) = \beta_i * x_i $$
 
-Never the mean is never negative
+here, the mean is never negative
 
 ---
 
-Event count time series
-http://www.utdallas.edu/~pxb054000/code/count-examples/ECTS-I-2010.pdf
+## Generalized Linear model (GLM)
+The last example is a case of GLM which consists of
+1. A **probability distribution**
+  - Depends on the underlying population
+  - e.g. Poisson
+2. A **linear predictor** `\(\eta = X\beta\)`
+  - Relates the independent variables `\(X\)` with the parameters `\(\beta\)`
+3. A **link function**
+  - Relates the predictor with the mean of the distribution, for Poisson it is `\(\eta = log(\lambda)\)`
+
+
+Note: logistic regression is also a GLM with link function `\( X\beta = \frac{\lambda}{1-\lambda} \)`
+
+---
+
+## Beyond Generalized linear model
+
+### Generalized Additive Models
+- GLM with **predictor** possibly **non-linear** of unknown smooth functions (allowing more flexibility without overfitting)
+- More info in this stitch fix [blog entry](http://multithreaded.stitchfix.com/blog/2015/07/30/gam/)
+
+---
+## Autoregressive modelling
+
+Linear model above are taking every event as independent measurement,
+autoregressive models allows to use history in a controlled manner.
+
+---
+
+## Autoregressive modelling
+linear dependence on previous values => **forcasting**
+
+### Autoregressive
+AR(p): `\(Y_{t} = C + \sum^{p}_{i=1} \phi_i Y_{t-p} + \epsilon _t\)`
+
+
+---
+
+## Autoregressive modelling
+linear dependence on previous values => **forcasting**
+
+### Autoregressive
+AR(p): `\(Y_{t} = C + \sum^{p}_{i=1} \phi_i Y_{t-p} + \epsilon _t\)`
+
+### Moving average
+
+MA(q) : `\(Y_{t} = m + \epsilon _t\ + \sum^{q}_{i=1} \theta_{i}\epsilon_{t-q}\)`
+
+
+
+---
+
+## Autoregressive modelling
+linear dependence on previous values => **forcasting**
+
+### Autoregressive
+AR(p): `\(Y_{t} = C + \sum^{p}_{i=1} \phi_i Y_{t-p} + \epsilon _t\)`
+
+### Moving average
+
+MA(q) : `\(Y_{t} = m + \epsilon _t\ + \sum^{q}_{i=1} \theta_{i}\epsilon_{t-q}\)`
+
+### Autoregressive moving average ARMA
+
+`\(Y_{t} = C + \sum^{p}_{i=1} \phi_i Y_{t-p} + \sum^{q}_{i=1}\theta_{i}\epsilon_{t-q} + \epsilon _t  \)`
+
+Also **ARIMA** (*I* for integrated) adds an initial differencing step to reduce non-stationarity
+see [this](initial differencing step) for more detail
+
 ---
 
 # Tools
 
 - R
+  - HUGE list of libraries see [list](https://cran.r-project.org/web/views/TimeSeries.html)
+- spark ts (very new)
+  - extends `rdd: RDD[String, Vector[Double]`
+  - from [documentation](http://sryza.github.io/spark-timeseries/0.3.0/index.html)
+  - Exponentially weighted moving average (EWMA) models
+  - Autoregressive integrated moving average (ARIMA) models
+  - Generalized autoregressive conditional heteroskedastic (GARCH) models (ARMA model for the variance)
+- Python
+  - did not investigate much but looks less mature than R
+  -[statsmodel](http://statsmodels.sourceforge.net)
 
 ---
 
-##Some functionality
+# Final note
 
+### Why are we talking about time series?
 
-- Exponentially weighted moving average (EWMA) models
-- Autoregressive integrated moving average (ARIMA) models
-- Generalized autoregressive conditional heteroskedastic (GARCH) models
-- Missing data imputation
-- Augmented Dickey-Fuller test
-  - To test if TS is stationary
-- Durbin-Watson test
-  - To test auto correlation
-- Breusch-Godfrey test
-  - To test assumptions in regression model
-- Breusch-Pagan test
-  - tests whether the estimated variance of the residuals from a regression are dependent on the values of the independent variables.
+- Need to make predictions on the click trends
+- Because in YP contact, we receive the information as clicks per day (at least for SEM).
+- Maybe usefull in run of site (run of site): an add is always shown on a given site (no premium, bidding)
 
-more stats listed [here](http://sryza.github.io/spark-timeseries/0.3.0/index.html)
+### Is this how we want to tackle predictions?
 
----
+- How about predicting is a given ad will turn into a click/contact?
 
-## Time series RDD
-extends `rdd: RDD[String, Vector[Double]`
-index `DateTimeIndex`
+`\(P(Click | X)\)`
+
+Then we can make a different prediction: Send `N` ads of type `A`
+and you will receive `\(Y \pm \sigma_{Y}\)` clicks
 
 ---
 
-## Forcasting
-### The naive approach, every event are independant
-- Linear regression: All points are equal, yesterday just as important as last year.
-- Poisson
-http://www.analyticsvidhya.com/blog/2016/02/time-series-forecasting-codes-python/
-http://www.analyticsvidhya.com/blog/2015/12/complete-tutorial-time-series-modeling/
+# Further subject to study
+
+## Gaussian processes
+http://www.robots.ox.ac.uk/~sjrob/Pubs/philTransA_2012.pdf
+http://www.rogerfrigola.com/doc/thesis.pdf
+http://stat.columbia.edu/~cunningham/pdf/CunninghamAISTATS2012.pdf
+https://papers.nips.cc/paper/2783-gaussian-process-dynamical-models.pdf
+
+
+## causal impact
+http://multithreaded.stitchfix.com/blog/2016/01/13/market-watch/
+and this ref within http://people.ischool.berkeley.edu/~hal/Papers/2013/pred-present-with-bsts.pdf
+
+
 
 ---
-
-Tools
-- Spark TS method (mentioned earlier)
-- R seems to be the most complete include tscounting
-- Python: seems to be behind R
+# fin
 
 ---
-
-# Display and Inline
-
-1. This is an inline integral: `\(\int_a^bf(x)dx\)`
-2. More `\(x={a \over b}\)` formulae.
-
-Display formula:
-
-$$e^{i\pi} + 1 = 0$$
-
----
-# More stuff
+Some references
+https://www.u-cergy.fr/_resources/Documents%2520SDRV/documents%2520IEA/Fokianos_CTSM.pdf
+http://www.planta.cn/forum/files_planta/glm_2002_crc_213.pdf
 
     </textarea>
     <script src="http://gnab.github.io/remark/downloads/remark-latest.min.js" type="text/javascript"></script>
